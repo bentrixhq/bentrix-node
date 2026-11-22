@@ -1,0 +1,11 @@
+{
+  "name": "bentrix",
+  "version": "0.1.361",
+  "description": "BENTRIX's engine in your own Node.js process, and its Gym - a client of BENTRIX's own environment.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "engines": { "node": ">=16" },
+  "files": ["index.js", "index.d.ts", "bentrix.node", "LICENSE"]
+}
