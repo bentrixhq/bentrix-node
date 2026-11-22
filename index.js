@@ -1,24 +1,138 @@
 'use strict';
 /*
- * BENTRIX in your own Node.js process (crates/bentrix-node, built as bentrix.node beside this file or
- * at BENTRIX_NODE_ADDON): the engine's tools answered in-process by the same names and shapes as over
- * MCP - read, laboratory and paper, never a real account. Its Gym is a client of BENTRIX's own
- * environment (env_make, env_reset, env_step), the one every language reaches.
+ * BENTRIX in your own Node.js process: the engine's tools answered in-process by the same names and shapes as over
+ * MCP - read, laboratory and paper, never a real account. Its Gym is a client of BENTRIX's own environment (env_make,
+ * env_reset, env_step), the one every language reaches.
+ *
+ * The engine is Bentrix's own library, libbentrix (shipped compiled with the application; it runs for Plus and
+ * Pro), reached through its C functions (bentrix.h) with the FFI package koffi (`npm install koffi`) - the one thing
+ * this half needs that Node does not carry. Where the library is looked for: the file BENTRIX_FFI names, libbentrix
+ * in the folder BENTRIX_FFI_DIR names, on Windows Bentrix's own folder (%LOCALAPPDATA%\Programs\BENTRIX), the
+ * system's library path. Nothing is loaded until a Local, makeTape, intervalMs or build is first used, so the MCP
+ * client beside this file never needs either.
  */
+const fs = require('fs');
 const path = require('path');
 
-/**
- * The native module, loaded by process.dlopen rather than require: require reads a file not named .node
- * as JavaScript, and a build's own output is libbentrix_node.so, bentrix_node.dll or
- * libbentrix_node.dylib.
- */
-function load(file) {
-  const module = { exports: {} };
-  process.dlopen(module, file);
-  return module.exports;
+const NAME = process.platform === 'win32' ? 'libbentrix.dll' : process.platform === 'darwin' ? 'libbentrix.dylib' : 'libbentrix.so';
+
+function candidates() {
+  const out = [];
+  if (process.env.BENTRIX_FFI) out.push(process.env.BENTRIX_FFI);
+  if (process.env.BENTRIX_FFI_DIR) out.push(path.join(process.env.BENTRIX_FFI_DIR, NAME));
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) out.push(path.join(process.env.LOCALAPPDATA, 'Programs', 'BENTRIX', NAME));
+  out.push(NAME);
+  return out;
 }
 
-const native = load(process.env.BENTRIX_NODE_ADDON || path.join(__dirname, 'bentrix.node'));
+let engine = null;
+
+/** The library's functions, loaded once on first use. */
+function lib() {
+  if (engine) return engine;
+  let koffi;
+  try {
+    koffi = require('koffi');
+  } catch (_) {
+    throw new Error("Bentrix's engine in this process is reached through the koffi package: npm install koffi");
+  }
+  const tried = [];
+  let handle = null;
+  for (const file of candidates()) {
+    if (file.includes(path.sep) && !fs.existsSync(file)) {
+      tried.push(file);
+      continue;
+    }
+    try {
+      handle = koffi.load(file);
+      break;
+    } catch (e) {
+      tried.push(`${file} (${e.message})`);
+    }
+  }
+  if (!handle) {
+    throw new Error(`Bentrix's engine library (${NAME}) was not found. It is installed with Bentrix; or set BENTRIX_FFI to the file, or BENTRIX_FFI_DIR to its folder. Looked at: ${tried.join('; ')}`);
+  }
+  const f = (sig) => handle.func(sig);
+  engine = {
+    koffi,
+    version: f('const char *bx_version()'),
+    lastError: f('const char *bx_last_error()'),
+    free: f('void bx_free(void *p)'),
+    open: f('void *bx_open(const char *workspace, const char *store)'),
+    close: f('void bx_close(void *s)'),
+    call: f('void *bx_call(void *s, const char *tool, const char *args)'),
+    read: f('void *bx_read(void *s, const char *resource, const char *vars)'),
+    arm: f('int bx_arm(void *s, const char *bench, size_t max_frames)'),
+    advance: f('int bx_advance(void *s, const char *bench, int64_t to_ms, _Out_ int64_t *reached)'),
+    settle: f('int bx_settle(void *s, size_t max_frames)'),
+    intervalMs: f('int64_t bx_interval_ms(const char *label)'),
+    makeTape: f('int bx_make_tape(const char *directory, _Out_ void **workspace, _Out_ void **store)'),
+  };
+  return engine;
+}
+
+/** Bentrix's own words for the last failure on this thread, thrown. */
+function fail() {
+  throw new Error(lib().lastError() || 'Bentrix answered with no words');
+}
+
+/** An owned answer read and handed back to the library; NULL thrown in Bentrix's words. */
+function text(p) {
+  const e = lib();
+  if (!p) fail();
+  try {
+    return e.koffi.decode(p, 'char', -1);
+  } finally {
+    e.free(p);
+  }
+}
+
+function ok(code) {
+  if (code !== 0) fail();
+}
+
+/** A session over the library, in the shape the Local below calls. */
+class Session {
+  constructor(workspace, store) {
+    this.s = lib().open(workspace, store);
+    if (!this.s) fail();
+  }
+  call(tool, args) {
+    return text(lib().call(this.s, tool, args));
+  }
+  read(resource, vars) {
+    return text(lib().read(this.s, resource, vars));
+  }
+  arm(bench, maxFrames) {
+    ok(lib().arm(this.s, bench, maxFrames ?? 20000));
+  }
+  advance(bench, toMs) {
+    const reached = [0];
+    ok(lib().advance(this.s, bench, toMs, reached));
+    return Number(reached[0]);
+  }
+  settle(maxFrames) {
+    ok(lib().settle(this.s, maxFrames ?? 1000));
+  }
+}
+
+const native = {
+  Session,
+  makeTape(directory) {
+    const ws = [null];
+    const store = [null];
+    ok(lib().makeTape(directory, ws, store));
+    return [text(ws[0]), text(store[0])];
+  },
+  intervalMs(label) {
+    const n = Number(lib().intervalMs(label));
+    return n || null;
+  },
+  build() {
+    return lib().version();
+  },
+};
 
 /** Leave out what is null or undefined, so the tool's own default applies. */
 function plain(args) {
