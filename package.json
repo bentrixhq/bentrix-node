@@ -1,13 +1,32 @@
 {
   "name": "bentrix",
-  "version": "0.1.361",
-  "description": "BENTRIX's engine in your own Node.js process, and its Gym - a client of BENTRIX's own environment.",
+  "version": "0.1.382",
+  "description": "The JavaScript client of Bentrix: every capability of a running Bentrix over its MCP endpoint (bentrix/mcp), and Bentrix's engine in your own Node.js process (bentrix).",
   "main": "index.js",
   "types": "index.d.ts",
   "license": "MIT",
-  "private": true,
-  "engines": { "node": ">=16" },
-  "files": ["index.js", "index.d.ts", "mcp", "LICENSE"],
-  "peerDependencies": { "koffi": ">=2.9" },
-  "peerDependenciesMeta": { "koffi": { "optional": true } }
+  "author": "Bentrix <dev@bentrix.net>",
+  "homepage": "https://bentrix.net/en/docs/sdk/javascript/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bentrixhq/bentrix-node.git"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "mcp",
+    "LICENSE",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "koffi": ">=2.9"
+  },
+  "peerDependenciesMeta": {
+    "koffi": {
+      "optional": true
+    }
+  }
 }

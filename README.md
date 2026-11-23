@@ -8,20 +8,20 @@ The client is generated from the catalogue of the Bentrix release it came with, 
 
 ## What you need
 
-Node.js 16 or later, and Bentrix open on the same computer. Nothing from npm.
+Node.js 16 or later, and Bentrix open on the same computer. The client depends on nothing.
 
 ## Install
 
-Clone this repository and require the client by its path:
-
-```javascript
-const { connect } = require('./bentrix-node/mcp');
+```bash
+npm install bentrix
 ```
+
+Or from a clone of this repository, by its path: `require('./bentrix-node/mcp')` in place of `require('bentrix/mcp')` below.
 
 ## Connect
 
 ```javascript
-const { connect, ToolError } = require('./bentrix-node/mcp');
+const { connect, ToolError } = require('bentrix/mcp');
 
 (async () => {
   const b = await connect({ name: 'my-agent' });
@@ -37,7 +37,17 @@ TypeScript declarations are beside the code (`mcp/generated.d.ts`, `index.d.ts`)
 
 ## The engine in your own process
 
-`index.js` and its Gym (the in-process engine, through the FFI package `koffi`: `npm install koffi`) run Bentrix's engine inside your program, with no window. The engine is Bentrix's own library, `libbentrix`, which Bentrix's installer puts in its folder (`%LOCALAPPDATA%\Programs\BENTRIX\libbentrix.dll` on Windows) and the binding finds there; `BENTRIX_FFI` (the file) or `BENTRIX_FFI_DIR` (its folder) names another. It runs for a computer signed in to Bentrix with Plus or Pro; with Free, connect to the running application as above.
+`require('bentrix')` — `Local` and the Gym's `TradingEnv` — runs Bentrix's engine inside your program, with no window, through the FFI package `koffi`:
+
+```bash
+npm install bentrix koffi
+```
+
+```javascript
+const { Local, TradingEnv } = require('bentrix');
+```
+
+The engine is Bentrix's own library, `libbentrix`, which Bentrix's installer puts in its folder (`%LOCALAPPDATA%\Programs\BENTRIX\libbentrix.dll` on Windows) and the binding finds there; `BENTRIX_FFI` (the file) or `BENTRIX_FFI_DIR` (its folder) names another. It runs for a computer signed in to Bentrix with Plus or Pro; with Free, connect to the running application as above.
 
 ## Documentation
 
@@ -45,4 +55,4 @@ Every method, its arguments, the permission it needs and what it answers: **http
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). It covers this source code only: Bentrix's engine library (`libbentrix`) and the Bentrix application are Bentrix's own, under their own terms.
+MIT — see [LICENSE](https://github.com/bentrixhq/bentrix-node/blob/main/LICENSE). It covers this source code only: Bentrix's engine library (`libbentrix`) and the Bentrix application are Bentrix's own, under their own terms.
