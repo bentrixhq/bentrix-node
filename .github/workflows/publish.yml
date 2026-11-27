@@ -1,0 +1,28 @@
+name: publish
+# npm publishes only from this workflow (Trusted Publishing: the package's trusted publisher names
+# bentrixhq/bentrix-node and this file), on a version's tag; npm takes GitHub's OIDC token and no token is stored.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest
+      - name: Publish, unless this version is already on npm
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if npm view "bentrix@$v" version >/dev/null 2>&1; then
+            echo "bentrix $v is already on npm"
+          else
+            npm publish --access public
+          fi

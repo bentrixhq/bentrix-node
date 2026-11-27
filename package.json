@@ -1,6 +1,6 @@
 {
   "name": "bentrix",
-  "version": "0.1.382",
+  "version": "0.2.383",
   "description": "The JavaScript client of Bentrix: every capability of a running Bentrix over its MCP endpoint (bentrix/mcp), and Bentrix's engine in your own Node.js process (bentrix).",
   "main": "index.js",
   "types": "index.d.ts",

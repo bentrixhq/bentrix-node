@@ -1,7 +1,7 @@
 'use strict';
 /*
- * BENTRIX in your own Node.js process: the engine's tools answered in-process by the same names and shapes as over
- * MCP - read, laboratory and paper, never a real account. Its Gym is a client of BENTRIX's own environment (env_make,
+ * Bentrix in your own Node.js process: the engine's tools answered in-process by the same names and shapes as over
+ * MCP - read, laboratory and paper, never a real account. Its Gym is a client of Bentrix's own environment (env_make,
  * env_reset, env_step), the one every language reaches.
  *
  * The engine is Bentrix's own library, libbentrix (shipped compiled with the application; it runs for Plus and
@@ -54,12 +54,24 @@ function lib() {
     throw new Error(`Bentrix's engine library (${NAME}) was not found. It is installed with Bentrix; or set BENTRIX_FFI to the file, or BENTRIX_FFI_DIR to its folder. Looked at: ${tried.join('; ')}`);
   }
   const f = (sig) => handle.func(sig);
+  // **The engine's interface this package speaks** (bx_abi): a library of
+  // another one is refused here, before bx_open, in a sentence naming both; one from before bx_abi (0.1.382) is 1.
+  let have = 1;
+  try {
+    have = f('uint32_t bx_abi()')();
+  } catch (e) {
+    have = 1;
+  }
+  if (have !== ABI) {
+    const built = f('const char *bx_version()')();
+    throw new Error(`Bentrix's engine library speaks interface ${have} (Bentrix ${built}) and this package speaks ${ABI}: ${have < ABI ? 'update Bentrix' : 'update this package'}.`);
+  }
   engine = {
     koffi,
     version: f('const char *bx_version()'),
     lastError: f('const char *bx_last_error()'),
     free: f('void bx_free(void *p)'),
-    open: f('void *bx_open(const char *workspace, const char *store)'),
+    open: f('void *bx_open(const char *workspace, const char *store, const char *client)'),
     close: f('void bx_close(void *s)'),
     call: f('void *bx_call(void *s, const char *tool, const char *args)'),
     read: f('void *bx_read(void *s, const char *resource, const char *vars)'),
@@ -71,6 +83,9 @@ function lib() {
   };
   return engine;
 }
+
+/** The engine's interface this package speaks (`bx_abi`, `bentrix.h`'s `BX_ABI`). */
+const ABI = 2;
 
 /** Bentrix's own words for the last failure on this thread, thrown. */
 function fail() {
@@ -95,7 +110,7 @@ function ok(code) {
 /** A session over the library, in the shape the Local below calls. */
 class Session {
   constructor(workspace, store) {
-    this.s = lib().open(workspace, store);
+    this.s = lib().open(workspace, store, 'Node.js');
     if (!this.s) fail();
   }
   call(tool, args) {
@@ -114,6 +129,10 @@ class Session {
   }
   settle(maxFrames) {
     ok(lib().settle(this.s, maxFrames ?? 1000));
+  }
+  close() {
+    if (this.s) lib().close(this.s);
+    this.s = null;
   }
 }
 
@@ -164,6 +183,11 @@ class Local {
   /** Advance a workbench to toMs on its clock, as Play would; where it stands. */
   advance(bench, toMs) {
     return this._s.advance(bench, toMs);
+  }
+
+  /** Close the session: the workspace persisted and let go, so it opens again. Closing twice is nothing. */
+  close() {
+    this._s.close();
   }
 
   /** Frames until nothing waits, or maxFrames. */

@@ -1,4 +1,4 @@
-// BENTRIX for Node.js: the engine in your own process, and its Gym.
+// Bentrix for Node.js: the engine in your own process, and its Gym.
 
 export interface Observation {
   /** The last `window` closed candles: [open, high, low, close] as log ratios to the last close. */
@@ -15,6 +15,8 @@ export declare class Local {
   advance(bench: string, toMs: number): number;
   settle(maxFrames?: number): void;
   book(bench: string): any;
+  /** Close the session: the workspace persisted and let go, so it opens again. Closing twice is nothing. */
+  close(): void;
 }
 
 export interface EnvOptions {

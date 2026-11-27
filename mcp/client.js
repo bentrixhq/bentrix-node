@@ -1,12 +1,12 @@
 'use strict';
 /*
- * The hand-written half of BENTRIX's JavaScript client: the connection and everything that does not
+ * The hand-written half of Bentrix's JavaScript client: the connection and everything that does not
  * change when a capability is added (generated.js is the rest, from the catalogue). It speaks MCP
  * revision 2026-07-28 over Streamable HTTP with Node's own fetch (Node 18 and later): every request is
  * its own POST carrying the protocol version, the client's identity and its (empty) capabilities in
  * _meta - the same wire as the Python client's _runtime.py, field for field.
  *
- * connect() finds the running application through endpoint.json in BENTRIX's agents folder, pairs with
+ * connect() finds the running application through endpoint.json in Bentrix's agents folder, pairs with
  * it through local.secret under a name of this process, and connects with the token it gets.
  */
 const fs = require('fs');
@@ -96,9 +96,22 @@ function headerValue(v) {
   return safe ? v : `=?base64?${Buffer.from(v, 'utf8').toString('base64')}?=`;
 }
 
+/**
+ * A workbench's address stands for its three parts: `bench` given as a
+ * `bentrix://<home>/<owner>/bench/<name>` address, or a workbench object (its `uri`), fills `home`, `owner` and
+ * `bench`. Parts given as before are left as they are.
+ */
+function fromAddress(values) {
+  const v = values.bench && typeof values.bench === 'object' ? values.bench.uri : values.bench;
+  if (typeof v !== 'string' || !v.startsWith('bentrix://')) return values;
+  const parts = v.slice('bentrix://'.length).split('/');
+  if (parts.length < 4 || parts[2] !== 'bench') return values;
+  return { ...values, home: parts[0], owner: parts[1], bench: parts[3] };
+}
+
 /** The RFC 6570 subset the catalogue uses: {name} and {?a,b}. A null optional is left out. */
 function expandTemplate(template, vars) {
-  const values = plain(vars);
+  const values = fromAddress(plain(vars));
   const scalar = (v) => (typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v));
   return template.replace(/\{([?&]?)([^}]+)\}/g, (_, op, names) => {
     if (op) {
@@ -145,7 +158,7 @@ function parseVersion(text) {
   return p.map(Number);
 }
 
-/** One BENTRIX endpoint. Subclassed by the generated Bentrix. */
+/** One Bentrix endpoint. Subclassed by the generated Bentrix. */
 class Client {
   constructor(url, token, { catalogueVersion, timeoutMs = 60000 } = {}) {
     this.url = url;
@@ -209,7 +222,7 @@ class Client {
   async call(name, args) {
     const a = plain(args);
     const res = await this._rpc('tools/call', { name, arguments: a }, name, requestTimeoutMs(this._timeoutMs, a));
-    if (res.resultType === 'input_required') throw new BentrixError(`${name} needs input this client cannot give; answer it in BENTRIX's window`);
+    if (res.resultType === 'input_required') throw new BentrixError(`${name} needs input this client cannot give; answer it in Bentrix's window`);
     const text = (res.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
     if (res.isError) throw new ToolError(name, text || 'the tool failed', (res._meta || {})['bentrix/machine']);
     if (res.structuredContent !== undefined && res.structuredContent !== null) return res.structuredContent;
@@ -307,7 +320,7 @@ function readSse(text, id) {
   throw new BentrixError('the stream ended without a response');
 }
 
-/** The folder BENTRIX writes its endpoint and secret into - user_dir(Data, "agents"), as the application has it. */
+/** The folder Bentrix writes its endpoint and secret into - user_dir(Data, "agents"), as the application has it. */
 function agentsDir() {
   if (process.env.LOCALAPPDATA) return path.join(process.env.LOCALAPPDATA, 'BENTRIX', 'agents');
   if (process.env.HOME) return path.join(process.env.HOME, '.local', 'share', 'bentrix', 'agents');
@@ -320,13 +333,13 @@ function readEndpoint(folder) {
   try {
     doc = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (_) {
-    throw new NotRunning(`BENTRIX is not running: there is no readable ${ENDPOINT_FILE} in ${folder}`);
+    throw new NotRunning(`Bentrix is not running: there is no readable ${ENDPOINT_FILE} in ${folder}`);
   }
-  if (typeof doc.url !== 'string' || !doc.url.startsWith('http://127.0.0.1:') || !Number.isInteger(doc.pid)) throw new NotRunning(`BENTRIX is not running: ${file} is not an endpoint file`);
+  if (typeof doc.url !== 'string' || !doc.url.startsWith('http://127.0.0.1:') || !Number.isInteger(doc.pid)) throw new NotRunning(`Bentrix is not running: ${file} is not an endpoint file`);
   try {
     process.kill(doc.pid, 0);
   } catch (e) {
-    if (e.code === 'ESRCH') throw new NotRunning(`BENTRIX is not running: ${file} is stale (process ${doc.pid} has ended)`);
+    if (e.code === 'ESRCH') throw new NotRunning(`Bentrix is not running: ${file} is stale (process ${doc.pid} has ended)`);
   }
   return doc;
 }
@@ -336,7 +349,7 @@ function readSecret(folder) {
   try {
     secret = fs.readFileSync(path.join(folder, SECRET_FILE), 'utf8').trim();
   } catch (_) {
-    throw new PairingRefused(`there is no readable ${SECRET_FILE} in ${folder}: BENTRIX writes it at every start`);
+    throw new PairingRefused(`there is no readable ${SECRET_FILE} in ${folder}: Bentrix writes it at every start`);
   }
   if (!secret) throw new PairingRefused(`${SECRET_FILE} is empty`);
   return secret;
@@ -360,10 +373,10 @@ async function pair(url, secret, name) {
   }
   if (!resp.ok) {
     const code = doc.error?.code ?? '';
-    if (code === 'wrong_secret') throw new PairingRefused('BENTRIX refused the secret in the secret file: it writes a new secret at every start');
-    throw new PairingRefused(`BENTRIX answered the pairing request with HTTP ${resp.status} ${code}: ${doc.error?.message ?? ''}`);
+    if (code === 'wrong_secret') throw new PairingRefused('Bentrix refused the secret in the secret file: it writes a new secret at every start');
+    throw new PairingRefused(`Bentrix answered the pairing request with HTTP ${resp.status} ${code}: ${doc.error?.message ?? ''}`);
   }
-  if (typeof doc.token !== 'string' || !doc.token) throw new PairingRefused('BENTRIX answered the pairing request with no token');
+  if (typeof doc.token !== 'string' || !doc.token) throw new PairingRefused('Bentrix answered the pairing request with no token');
   return doc.token;
 }
 

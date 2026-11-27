@@ -1,4 +1,4 @@
-// The hand-written half of BENTRIX's JavaScript client (client.js).
+// The hand-written half of Bentrix's JavaScript client (client.js).
 
 export declare const PROTOCOL_VERSION: '2026-07-28';
 /** The JSON-RPC code of a request Bentrix refused before doing anything with it; the client sends it again after the wait it names. */
